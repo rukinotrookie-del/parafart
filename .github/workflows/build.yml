@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 360
 
     steps:
@@ -59,6 +59,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install \
             lz4 capstone fonttools backports.zstd gdown
+
+      - name: Show Xcode and make sure the Metal toolchain is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcode-select -p
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcodebuild -downloadComponent MetalToolchain || echo "::warning::MetalToolchain download step failed or was not needed"
+          xcrun -sdk iphoneos metal --version
 
       - name: Download game files and keys
         env:
