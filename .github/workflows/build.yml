@@ -1,4 +1,3 @@
-
 name: NxNative - Generic IPA Builder
 
 on:
@@ -8,10 +7,10 @@ on:
         description: "Choose the target device and texture support path"
         required: true
         type: choice
-        default: "iPhone 15 or older (BC fallback)"
+        default: "iPhone 15 Pro/Pro Max or newer (standard)"
         options:
-          - "iPhone 15 or older (BC fallback)"
           - "iPhone 15 Pro/Pro Max or newer (standard)"
+          - "iPhone 15 or older (BC fallback)"
       profile_id:
         description: "Optional nxnative profile ID override (leave blank for automatic detection)"
         required: false
@@ -55,7 +54,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install xcodegen zstd spirv-cross unar
+          brew install xcodegen zstd spirv-cross unar glslang
+          command -v glslangValidator
           python -m pip install --upgrade pip
           python -m pip install \
             lz4 capstone fonttools backports.zstd gdown
@@ -107,17 +107,17 @@ jobs:
           ):
               file_id = url
 
-          if not file_id:
-              raise SystemExit(
-                  "Could not extract a Google Drive file ID."
-              )
-
-          print(file_id)
+          print(file_id or "")
           PY
           )"
 
             echo "Downloading $(basename "$output")..."
-            gdown "$file_id" -O "$output"
+            if [[ -n "$file_id" ]]; then
+              gdown "$file_id" -O "$output"
+            else
+              echo "Not a Google Drive link; downloading with curl."
+              curl -fL --retry 5 --retry-delay 10 -C - -o "$output" "$url"
+            fi
 
             if [[ ! -s "$output" ]]; then
               echo "::error::Downloaded file is empty."
@@ -415,22 +415,36 @@ jobs:
           echo "DM_GAME=$PROFILE_ID" >> "$GITHUB_ENV"
           echo "DETECTED_TITLE_ID=$DETECTED_ID" >> "$GITHUB_ENV"
 
+      # In the current nxnative main, dmsh_chain.py has no --update-lock flag.
+      # Its header says the tool lock is handled by tool_lock.py instead.
+      # This step prints what tool_lock.py accepts (so the lock step can be
+      # added with the right command), then runs the supported --header.
       - name: Update shader toolchain lock and header
         shell: bash
         run: |
           set -euo pipefail
+          echo "Device option: ${{ inputs.device }}"
           echo "Preparing shader toolchain for profile $DM_GAME"
 
-          CHAIN_SCRIPT="$(
-            find . -name dmsh_chain.py -type f -print -quit
-          )"
-
+          CHAIN_SCRIPT="$(find . -name dmsh_chain.py -type f -print -quit)"
           if [[ -z "$CHAIN_SCRIPT" ]]; then
             echo "::error::Could not find dmsh_chain.py"
             exit 1
           fi
+          echo "Using: $CHAIN_SCRIPT"
+          git log -1 --format='Checked out commit: %H' || true
 
-          python "$CHAIN_SCRIPT" --update-lock
+          LOCK_SCRIPT="$(find . -name tool_lock.py -type f -print -quit)"
+          if [[ -n "$LOCK_SCRIPT" ]]; then
+            echo "=== tool_lock.py: $LOCK_SCRIPT ==="
+            sed -n 1,60p "$LOCK_SCRIPT"
+            echo "=== tool_lock.py: argument handling ==="
+            grep -nE "argv|add_argument|argparse|'--[a-z-]+'|\"--[a-z-]+\"" "$LOCK_SCRIPT" | head -40 || true
+          else
+            echo "::warning::tool_lock.py not found"
+          fi
+
+          echo "=== running dmsh_chain.py --header ==="
           python "$CHAIN_SCRIPT" --header
 
       - name: Build unsigned IPA
