@@ -481,6 +481,11 @@ jobs:
           GAME_DIR="$RUNNER_TEMP/GameFiles"
           OUTPUT="$RUNNER_TEMP/NxNative.ipa"
 
+          if [[ -d /Applications/Xcode_27.2.app ]]; then
+            sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
+            xcodebuild -downloadComponent MetalToolchain || echo "::warning::MetalToolchain download failed or not needed"
+          fi
+          xcodebuild -version
           echo "Selected Xcode: $(xcode-select -p)"
           ls -d /Applications/Xcode* || true
 
@@ -488,6 +493,7 @@ jobs:
             "$GAME_DIR" \
             -k "$WORK/prod.keys" \
             -o "$OUTPUT" \
+            --title-id "$DM_GAME" \
             --allow-other-metal
 
           if [[ ! -s "$OUTPUT" ]]; then
