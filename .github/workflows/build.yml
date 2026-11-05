@@ -183,6 +183,8 @@ jobs:
           def validate_package(path):
               with path.open("rb") as f:
                   magic = f.read(4)
+                  f.seek(0x100)
+                  xci_magic = f.read(4)
 
               suffix = path.suffix.lower()
 
@@ -191,7 +193,7 @@ jobs:
                       f"Invalid {suffix} package signature: {path.name}"
                   )
 
-              if suffix in (".xci", ".xcz") and magic != b"HEAD":
+              if suffix in (".xci", ".xcz") and xci_magic != b"HEAD":
                   raise SystemExit(
                       f"Invalid {suffix} package signature: {path.name}"
                   )
@@ -264,9 +266,13 @@ jobs:
                       "checking as a direct package."
                   )
 
+                  with source.open("rb") as f:
+                      f.seek(0x100)
+                      xci_magic = f.read(4)
+
                   if signature[:4] == b"PFS0":
                       extension = ".nsp"
-                  elif signature[:4] == b"HEAD":
+                  elif xci_magic == b"HEAD":
                       extension = ".xci"
                   else:
                       with source.open("rb") as f:
