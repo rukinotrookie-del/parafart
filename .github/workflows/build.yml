@@ -424,7 +424,7 @@ jobs:
 
           print(next(iter(candidates)))
           PY
-          )"
+          )" || true
 
           PROFILE_ID="${PROFILE_OVERRIDE:-$DETECTED_ID}"
           PROFILE_ID="$(echo "$PROFILE_ID" | tr '[:lower:]' '[:upper:]')"
@@ -433,6 +433,8 @@ jobs:
             echo "::error::Profile ID must be exactly 16 hexadecimal characters."
             exit 1
           fi
+
+          DETECTED_ID="${DETECTED_ID:-$PROFILE_ID}"
 
           echo "Detected base title ID: $DETECTED_ID"
           echo "Shader profile ID: $PROFILE_ID"
